@@ -11,6 +11,20 @@ import { ActivityFeed } from "./activity-feed";
 import { AddUMKMModal } from "./add-umkm-modal";
 import { CreateCategoryDialog } from "./create-category-dialog";
 import { useToast } from "@/components/ui/use-toast";
+import { Coffee, Shirt, Palette, Leaf, Sofa, Scissors } from "lucide-react";
+
+
+
+// 🚀 Default kategori yang bisa dipilih
+const iconOptions = [
+  { name: "Food & Beverage", icon: Coffee, color: "bg-red-500" },
+  { name: "Textile", icon: Shirt, color: "bg-blue-500" },
+  { name: "Handicraft", icon: Palette, color: "bg-yellow-500" },
+  { name: "Agriculture", icon: Leaf, color: "bg-green-500" },
+  { name: "Furniture", icon: Sofa, color: "bg-purple-500" },
+  { name: "Fashion", icon: Scissors, color: "bg-pink-500" },
+];
+
 
 export function Dashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,13 +52,24 @@ export function Dashboard() {
     percentage: number;
   }
 
-  const handleAddCategory = (newCategory: Category) => {
-    // This function will be passed down to the CreateCategoryDialog
-    // The actual implementation is in the UMKMCategories component
+  const handleAddCategory = (newCategory: { name: string }) => {
+    // 🚀 Cari kategori yang sesuai di iconOptions
+    const matchedCategory = iconOptions.find(
+      (cat) => cat.name === newCategory.name
+    );
+  
+    const category: Category = {
+      name: newCategory.name,
+      icon: matchedCategory?.icon || Coffee, // Default icon jika tidak ditemukan
+      color: matchedCategory?.color || "bg-gray-500", // Default warna jika tidak ditemukan
+      percentage: 0, // Baru dibuat, default 0%
+    };
+  
     toast({
-      title: "Category Added",
-      description: `${newCategory.name} has been added to the categories.`,
+      title: "Kategori Ditambahkan",
+      description: `${category.name} berhasil ditambahkan.`,
     });
+  
     setIsCategoryDialogOpen(false);
   };
 
