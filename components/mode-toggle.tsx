@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,12 @@ import {
 
 export function ModeToggle() {
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // ✅ Pastikan komponen hanya dirender di client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <DropdownMenu>
@@ -20,13 +27,18 @@ export function ModeToggle() {
           size="icon"
           className="w-full justify-left px-5"
         >
-          {theme === "light" ? (
-            <Sun className="h-5 w-5" />
+          {/* ✅ Render hanya setelah mounted untuk menghindari hydration error */}
+          {mounted ? (
+            theme === "light" ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )
           ) : (
-            <Moon className="h-5 w-5" />
+            <div className="h-5 w-5 bg-gray-300 rounded-full" />
           )}
           <span className="ml-2">
-            {theme === "light" ? "Light" : "Dark"} Mode
+            {mounted ? (theme === "light" ? "Light" : "Dark") : "Loading..."}
           </span>
         </Button>
       </DropdownMenuTrigger>
@@ -37,7 +49,7 @@ export function ModeToggle() {
         >
           <Sun className="h-4 w-4" />
           <span>Light</span>
-          {theme === "light" && <span className="ml-auto">✓</span>}
+          {mounted && theme === "light" && <span className="ml-auto">✓</span>}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => setTheme("dark")}
@@ -45,7 +57,7 @@ export function ModeToggle() {
         >
           <Moon className="h-4 w-4" />
           <span>Dark</span>
-          {theme === "dark" && <span className="ml-auto">✓</span>}
+          {mounted && theme === "dark" && <span className="ml-auto">✓</span>}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

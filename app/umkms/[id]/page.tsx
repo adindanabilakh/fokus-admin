@@ -9,6 +9,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
   Coffee,
+  Shirt,
+  Palette,
+  Leaf,
+  Sofa,
   Star,
   MapPin,
   Phone,
@@ -31,44 +35,70 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 
-// Mock data for UMKM details
-const umkmDetails = {
-  id: 1,
-  name: "Warung Tegal",
-  type: "Food & Beverage",
-  status: "Pending",
-  icon: Coffee,
-  rating: 4.5,
-  location: "Jakarta",
-  phone: "+62 812-3456-7890",
-  email: "info@warungtegal.com",
-  website: "https://warungtegal.com",
-  description:
-    "Warung Tegal is a popular Indonesian food stall specializing in Tegal cuisine. Known for its delicious and affordable meals, it has become a favorite among locals and tourists alike.",
-  products: [
-    { name: "Nasi Goreng", price: 25000, rating: 4.7 },
-    { name: "Soto Ayam", price: 20000, rating: 4.5 },
-    { name: "Es Teh Manis", price: 5000, rating: 4.3 },
-  ],
-  financials: {
-    monthlyRevenue: 50000000,
-    yearlyGrowth: 15,
-    employeeCount: 10,
-  },
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+
+// 🔥 Mapping ikon berdasarkan tipe UMKM
+const iconMap: { [key: string]: any } = {
+  "Food & Beverage": Coffee,
+  Textile: Shirt,
+  Handicraft: Palette,
+  Agriculture: Leaf,
+  Furniture: Sofa,
 };
+
+interface Product {
+  name: string;
+  price: number;
+  rating?: number;
+}
 
 export default function UMKMDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [umkm, setUMKM] = useState(umkmDetails);
+  const [umkm, setUMKM] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    // In a real application, you would fetch the UMKM details here
-    // using the ID from params.id
-    console.log("Fetching UMKM with ID:", params.id);
+    async function fetchUMKMDetails() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/umkms/${params.id}`, {
+          headers: { Accept: "application/json" },
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setUMKM(data);
+        } else {
+          console.error("Failed to fetch UMKM details");
+        }
+      } catch (error) {
+        console.error("Error fetching UMKM details:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchUMKMDetails();
   }, [params.id]);
+
+  const handleDelete = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/umkms/${umkm.id}`, {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) throw new Error("Failed to delete UMKM");
+      toast({
+        title: "UMKM Deleted",
+        description: `${umkm.name} has been deleted.`,
+        variant: "destructive",
+      });
+      router.push("/umkms");
+    } catch (error) {
+      console.error("Error deleting UMKM:", error);
+    }
+  };
 
   const handleApprove = () => {
     setUMKM({ ...umkm, status: "Approved" });
@@ -87,16 +117,16 @@ export default function UMKMDetailPage() {
     });
   };
 
-  const handleDelete = () => {
-    setIsDeleteDialogOpen(false);
-    // In a real application, you would delete the UMKM here
-    toast({
-      title: "UMKM Deleted",
-      description: `${umkm.name} has been deleted successfully.`,
-      variant: "destructive",
-    });
-    router.push("/umkms"); // Redirect to UMKM list page
-  };
+  if (isLoading) {
+    return <div className="text-center p-6">Loading UMKM Details...</div>;
+  }
+
+  if (!umkm) {
+    return <div className="text-center p-6 text-red-500">UMKM Not Found</div>;
+  }
+
+  // 🔥 Pilih ikon sesuai tipe UMKM, default ke "Coffee" jika tidak ada yang cocok
+  const Icon = iconMap[umkm.type] || Coffee;
 
   return (
     <div className="container mx-auto p-6">
@@ -112,7 +142,7 @@ export default function UMKMDetailPage() {
                 <div
                   className={`w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center`}
                 >
-                  <umkm.icon className="h-6 w-6 text-primary" />
+                  <Icon className="h-6 w-6 text-primary" />
                 </div>
                 <div>
                   <CardTitle className="text-2xl">{umkm.name}</CardTitle>
@@ -173,84 +203,20 @@ export default function UMKMDetailPage() {
                 <TabsTrigger value="financials">Financials</TabsTrigger>
               </TabsList>
               <TabsContent value="overview">
-                <div className="space-y-4">
-                  <p>{umkm.description}</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex items-center">
-                      <MapPin className="h-5 w-5 mr-2" />
-                      <span>{umkm.location}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Phone className="h-5 w-5 mr-2" />
-                      <span>{umkm.phone}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Mail className="h-5 w-5 mr-2" />
-                      <span>{umkm.email}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Globe className="h-5 w-5 mr-2" />
-                      <a
-                        href={umkm.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline"
-                      >
-                        {umkm.website}
-                      </a>
-                    </div>
-                  </div>
-                </div>
+                <p>{umkm.description}</p>
               </TabsContent>
               <TabsContent value="products">
-                <div className="space-y-4">
-                  {umkm.products.map((product, index) => (
-                    <Card key={index}>
-                      <CardContent className="flex items-center justify-between p-4">
-                        <div>
-                          <h3 className="font-semibold">{product.name}</h3>
-                          <p className="text-muted-foreground">
-                            Rp {product.price.toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center">
-                          <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                          <span>{product.rating}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                {umkm.products?.map((product: Product, index: number) => (
+                  <Card key={index}>
+                    <CardContent>
+                      <h3>{product.name}</h3>
+                      <p>Rp {product.price.toLocaleString()}</p>
+                    </CardContent>
+                  </Card>
+                ))}
               </TabsContent>
               <TabsContent value="financials">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card>
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold">Monthly Revenue</h3>
-                        <p className="text-2xl font-bold">
-                          Rp {umkm.financials.monthlyRevenue.toLocaleString()}
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold">Yearly Growth</h3>
-                        <p className="text-2xl font-bold">
-                          {umkm.financials.yearlyGrowth}%
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold">Employee Count</h3>
-                        <p className="text-2xl font-bold">
-                          {umkm.financials.employeeCount}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
+                <p>Monthly Revenue: Rp {umkm.financials?.monthlyRevenue}</p>
               </TabsContent>
             </Tabs>
           </CardContent>

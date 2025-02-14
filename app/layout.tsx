@@ -1,25 +1,38 @@
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import "./resizable.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Sidebar } from "@/components/sidebar"
-import { Header } from "@/components/header"
-import { Toaster } from "@/components/ui/toaster"
-import type React from "react"
+"use client";
 
-const inter = Inter({ subsets: ["latin"] })
+import { Inter } from "next/font/google";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import "./globals.css";
+import "./resizable.css";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Sidebar } from "@/components/sidebar";
+import { Header } from "@/components/header";
+import { Toaster } from "@/components/ui/toaster";
+import type React from "react";
 
-export const metadata: Metadata = {
-  title: "UMKM Admin Dashboard",
-  description: "Manage your UMKM listings with ease",
-}
+const inter = Inter({ subsets: ["latin"] });
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    // Kalau belum login dan bukan di halaman login, redirect ke /login
+    if (!token && pathname !== "/login") {
+      router.push("/login");
+    }
+  }, [pathname]);
+
+  // Jika sedang di halaman login, jangan tampilkan Sidebar & Header
+  const isLoginPage = pathname === "/login";
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
@@ -30,17 +43,22 @@ export default function RootLayout({
           disableTransitionOnChange
           storageKey="umkm-theme"
         >
-          <div className="flex h-screen bg-background">
-            <Sidebar />
-            <div className="flex flex-col flex-1 overflow-hidden">
-              <Header />
-              <main className="flex-1 overflow-y-auto bg-background relative">{children}</main>
+          {isLoginPage ? (
+            <>{children}</> // Tampilkan hanya halaman login tanpa layout utama
+          ) : (
+            <div className="flex h-screen bg-background">
+              <Sidebar />
+              <div className="flex flex-col flex-1 overflow-hidden">
+                <Header />
+                <main className="flex-1 overflow-y-auto bg-background relative">
+                  {children}
+                </main>
+              </div>
             </div>
-          </div>
+          )}
           <Toaster />
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }
-

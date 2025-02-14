@@ -1,21 +1,37 @@
-"use client"
-import { motion } from "framer-motion"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { Home, Users, HelpCircle, LogOut } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import { ModeToggle } from "./mode-toggle"
+"use client";
+import { motion } from "framer-motion";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { Home, Users, HelpCircle, LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { ModeToggle } from "./mode-toggle";
+import { useToast } from "@/components/ui/use-toast";
 
 const menuItems = [
   { icon: Home, label: "Dashboard", href: "/" },
   { icon: Users, label: "All UMKMs", href: "/umkms" },
-]
+];
 
 export function Sidebar() {
-  const pathname = usePathname()
-  // const [openSubmenu, setOpenSubmenu] = useState<string | null>(null) //Removed
+  const pathname = usePathname();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const handleLogout = () => {
+    // Hapus token dari localStorage
+    localStorage.removeItem("token");
+
+    // Notifikasi logout sukses
+    toast({
+      title: "Logout Berhasil",
+      description: "Anda telah keluar dari UMKM Admin Dashboard.",
+    });
+
+    // Redirect ke halaman login
+    router.push("/login");
+  };
 
   return (
     <motion.aside
@@ -29,12 +45,16 @@ export function Sidebar() {
       </div>
       <ScrollArea className="flex-grow px-4">
         <nav className="space-y-2 py-4">
-          {menuItems.map((item, index) => (
+          {menuItems.map((item) => (
             <div key={item.label}>
               <Link href={item.href}>
                 <Button
                   variant="ghost"
-                  className={`w-full justify-start ${pathname === item.href ? "bg-accent text-accent-foreground" : ""}`}
+                  className={`w-full justify-start ${
+                    pathname === item.href
+                      ? "bg-accent text-accent-foreground"
+                      : ""
+                  }`}
                 >
                   <item.icon className="mr-2 h-4 w-4" />
                   {item.label}
@@ -53,6 +73,7 @@ export function Sidebar() {
         </Button>
         <Button
           variant="ghost"
+          onClick={handleLogout} // Tambahkan fungsi logout di sini
           className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
         >
           <LogOut className="mr-2 h-4 w-4" />
@@ -60,6 +81,5 @@ export function Sidebar() {
         </Button>
       </div>
     </motion.aside>
-  )
+  );
 }
-
