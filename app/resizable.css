@@ -1,0 +1,19 @@
+.react-resizable {
+  position: relative;
+}
+
+.react-resizable-handle {
+  position: absolute;
+  width: 20px;
+  height: 100%;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  box-sizing: border-box;
+  cursor: ew-resize;
+  z-index: 10;
+}
+
+.react-resizable-handle-w {
+  left: -10px;
+}
+
