@@ -68,20 +68,20 @@ export function HeroStats() {
             trend: (activeUMKMs - 80) / 80,
             history: [70, 75, 80, 85, activeUMKMs],
           },
-          {
-            title: "Total Products",
-            value: 5678,
-            icon: ShoppingBag,
-            trend: -1.5,
-            history: [100, 120, 110, 130, 125, 135, 128],
-          },
-          {
-            title: "Revenue",
-            value: 123456,
-            icon: DollarSign,
-            trend: 7.8,
-            history: [50000, 60000, 75000, 90000, 100000, 115000, 123456],
-          },
+          // {
+          //   title: "Total Products",
+          //   value: 5678,
+          //   icon: ShoppingBag,
+          //   trend: -1.5,
+          //   history: [100, 120, 110, 130, 125, 135, 128],
+          // },
+          // {
+          //   title: "Revenue",
+          //   value: 123456,
+          //   icon: DollarSign,
+          //   trend: 7.8,
+          //   history: [50000, 60000, 75000, 90000, 100000, 115000, 123456],
+          // },
         ];
 
         setStats(newStats);
@@ -94,7 +94,7 @@ export function HeroStats() {
   }, []);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
       {stats.map((stat, index) => (
         <StatCard key={stat.title} stat={stat} index={index} />
       ))}

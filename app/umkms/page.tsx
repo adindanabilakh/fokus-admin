@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,12 +16,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CreateUMKMDialog } from "@/components/create-umkm-dialog";
-import { EditUMKMDialog } from "@/components/edit-umkm-dialog";
 import { DeleteUMKMDialog } from "@/components/delete-umkm-dialog";
-import { Search } from "lucide-react";
 // import type { UMKM } from "@/components/edit-umkm-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import axios from "axios";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface UMKM {
   id: number;
@@ -37,6 +50,8 @@ export default function AllUMKMs() {
   const router = useRouter();
   const [selectedUMKMId, setSelectedUMKMId] = useState<number | null>(null);
   const { toast } = useToast();
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -127,6 +142,19 @@ export default function AllUMKMs() {
     router.push(`/umkms/${id}`);
   };
 
+  const filteredUMKMs = useMemo(() => {
+    return umkmData.filter((umkm) =>
+      umkm.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [umkmData, searchTerm]);
+
+  const paginatedUMKMs = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredUMKMs.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredUMKMs, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredUMKMs.length / itemsPerPage);
+
   return (
     <div className="container mx-auto p-6">
       <motion.div
@@ -145,9 +173,6 @@ export default function AllUMKMs() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-64"
               />
-              <Button variant="outline" size="icon">
-                <Search className="h-4 w-4" />
-              </Button>
               <CreateUMKMDialog onCreateUMKM={fetchUMKMs} />
             </div>
           </CardHeader>
@@ -162,7 +187,7 @@ export default function AllUMKMs() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {umkmData.map((umkm) => (
+                {paginatedUMKMs.map((umkm) => (
                   <TableRow key={umkm.id}>
                     <TableCell>{umkm.name}</TableCell>
                     <TableCell>{umkm.type}</TableCell>
@@ -186,19 +211,6 @@ export default function AllUMKMs() {
                       >
                         View
                       </Button>
-                      {/* ✅ Panggil fetchUMKMs setelah edit */}
-                      {/* <Button
-                        variant="outline"
-                        onClick={() => setSelectedUMKMId(umkm.id)} // ⬅️ Set ID sebelum membuka modal
-                      >
-                        Edit
-                      </Button>
-                      {selectedUMKMId && (
-                        <EditUMKMDialog
-                          umkmId={selectedUMKMId}
-                          onUpdate={fetchUMKMs}
-                        />
-                      )} */}
                       <DeleteUMKMDialog
                         umkmId={umkm.id}
                         umkmName={umkm.name}
@@ -209,6 +221,54 @@ export default function AllUMKMs() {
                 ))}
               </TableBody>
             </Table>
+            <div className="flex items-center justify-between mt-4">
+              <Select
+                value={itemsPerPage.toString()}
+                onValueChange={(value) => setItemsPerPage(Number(value))}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Items per page" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 per page</SelectItem>
+                  <SelectItem value="10">10 per page</SelectItem>
+                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="50">50 per page</SelectItem>
+                </SelectContent>
+              </Select>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      }
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <PaginationItem key={page}>
+                        <PaginationLink
+                          onClick={() => setCurrentPage(page)}
+                          isActive={currentPage === page}
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )
+                  )}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                      }
+                      disabled={currentPage === totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
