@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
+import axios from "axios";
 
 interface Category {
   id: number;
@@ -46,46 +47,61 @@ export function CreateUMKMDialog({ onCreateUMKM }: CreateUMKMDialogProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [loading, setLoading] = useState(false); // 🔥 Tambah state loading
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-  // ✅ Fetch categories from API
+  // ✅ Fungsi untuk fetch CSRF Token sebelum request API
+  const fetchCSRFToken = async () => {
+    try {
+      await axios.get(`${API_BASE_URL}/sanctum/csrf-cookie`, {
+        withCredentials: true,
+      });
+    } catch (error) {
+      console.error("Failed to fetch CSRF token:", error);
+    }
+  };
+
+  // ✅ Fungsi untuk mendapatkan CSRF Token dari cookies
+  const getCSRFToken = () => {
+    return document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("XSRF-TOKEN="))
+      ?.split("=")[1];
+  };
+
+  // ✅ Fetch categories dari API
   useEffect(() => {
     async function fetchCategories() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
       try {
-        const res = await fetch(`${API_BASE_URL}/api/categories`, {
+        await fetchCSRFToken();
+        const res = await axios.get(`${API_BASE_URL}/api/categories`, {
+          withCredentials: true,
           headers: {
-            Accept: "application/json",
+            "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
             Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
         });
 
-        if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setCategories(data);
-        } else {
-          console.error("Invalid category format:", data);
-        }
+        if (!res.data) throw new Error("Invalid response format");
+        setCategories(res.data);
       } catch (error) {
         console.error("Error fetching categories:", error);
       }
     }
 
     fetchCategories();
-  }, [API_BASE_URL]);
+  }, []);
 
-  // ✅ Default Password
+  // ✅ Generate default password
   const generatePassword = () => "password123";
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
+  // ✅ Handle Submit UMKM
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -125,43 +141,54 @@ export function CreateUMKMDialog({ onCreateUMKM }: CreateUMKMDialogProps) {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/umkms`, {
-        method: "POST",
+      await fetchCSRFToken(); // ✅ Ambil CSRF token sebelum request
+
+      const res = await axios.post(`${API_BASE_URL}/api/umkms`, newUMKM, {
+        withCredentials: true,
         headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
+          "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
           Authorization: `Bearer ${token}`,
+          Accept: "application/json",
         },
-        body: JSON.stringify(newUMKM),
       });
 
-      if (!res.ok) throw new Error("Failed to create UMKM");
+      if (res.status !== 201) throw new Error("Failed to create UMKM");
 
-      const createdUMKM = await res.json();
-      console.log("UMKM Created:", createdUMKM); // Debugging
+      const createdUMKM = res.data;
+      console.log("UMKM Created:", createdUMKM);
 
-      await onCreateUMKM(createdUMKM);
-      // 🔥 Refetch data setelah berhasil
+      await onCreateUMKM(createdUMKM); // ✅ Refresh UMKM list
 
       toast({
         title: "UMKM Created",
         description: `${name} has been added successfully.`,
       });
 
-      // Reset form dan tutup modal
+      // Reset form & tutup modal
       setName("");
       setType("");
       setLocation("");
       setEmail("");
       setIsOpen(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating UMKM:", error);
+
+      let errorMessage = "Failed to create UMKM. Please try again.";
+      if (error.response) {
+        if (error.response.status === 419) {
+          errorMessage = "CSRF Token Mismatch. Please refresh and try again.";
+        } else if (error.response.status === 401) {
+          errorMessage = "Unauthorized. Please log in first.";
+        } else if (error.response.status === 403) {
+          errorMessage = "Forbidden. You don't have permission.";
+        } else if (error.response.status === 500) {
+          errorMessage = "Internal Server Error. Try again later.";
+        }
+      }
+
       toast({
         title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to create UMKM. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -244,8 +271,8 @@ export function CreateUMKMDialog({ onCreateUMKM }: CreateUMKMDialogProps) {
             </div>
           </div>
           <div className="flex justify-end">
-            <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create UMKM"}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create UMKM"}
             </Button>
           </div>
         </form>

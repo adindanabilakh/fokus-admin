@@ -1,135 +1,362 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import {
-  Coffee,
-  Shirt,
-  Palette,
-  Leaf,
-  Sofa,
-  Star,
-  MapPin,
-  Phone,
-  Mail,
-  Globe,
-  Check,
-  X,
-  Trash2,
-} from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Plus, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Toaster } from "@/components/ui/toaster";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import axios from "axios";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-// 🔥 Mapping ikon berdasarkan tipe UMKM
-const iconMap: { [key: string]: any } = {
-  "Food & Beverage": Coffee,
-  Textile: Shirt,
-  Handicraft: Palette,
-  Agriculture: Leaf,
-  Furniture: Sofa,
+// Fetch CSRF Token before API request
+const fetchCSRFToken = async () => {
+  try {
+    await axios.get(`${API_BASE_URL}/sanctum/csrf-cookie`, {
+      withCredentials: true,
+    });
+  } catch (error) {
+    console.error("Failed to fetch CSRF token:", error);
+  }
+};
+
+// Get CSRF Token from cookies
+const getCSRFToken = () => {
+  return document.cookie
+    .split("; ")
+    .find((row) => row.startsWith("XSRF-TOKEN="))
+    ?.split("=")[1];
 };
 
 interface Product {
+  id: number;
   name: string;
+  description: string;
   price: number;
-  rating?: number;
+  image: string;
 }
 
 export default function UMKMDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const [umkm, setUMKM] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    description: "",
+    price: "",
+    imageUrl: "",
+    imageFile: null as File | null,
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     async function fetchUMKMDetails() {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/umkms/${params.id}`, {
+        const res = await axios.get(`${API_BASE_URL}/api/umkms/${params.id}`, {
           headers: { Accept: "application/json" },
+          withCredentials: true,
         });
-        const data = await res.json();
-        if (res.ok) {
-          setUMKM(data);
-        } else {
-          console.error("Failed to fetch UMKM details");
-        }
+        setUMKM(res.data);
       } catch (error) {
         console.error("Error fetching UMKM details:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch UMKM details",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
     }
     fetchUMKMDetails();
-  }, [params.id]);
+  }, [params.id, toast]);
 
-  const handleDelete = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/umkms/${umkm.id}`, {
-        method: "DELETE",
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) throw new Error("Failed to delete UMKM");
+  const handleAddProduct = async () => {
+    if (!newProduct.name || !newProduct.description || !newProduct.price) {
       toast({
-        title: "UMKM Deleted",
-        description: `${umkm.name} has been deleted.`,
+        title: "Error",
+        description: "All fields must be filled",
         variant: "destructive",
       });
-      router.push("/umkms");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Unauthorized",
+        description: "Login required",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await fetchCSRFToken();
+
+      let imageUrl = newProduct.imageUrl;
+
+      if (newProduct.imageFile) {
+        const formData = new FormData();
+        formData.append("image", newProduct.imageFile);
+
+        const uploadRes = await axios.post(
+          `${API_BASE_URL}/api/upload-image`,
+          formData,
+          {
+            withCredentials: true,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+
+        imageUrl = uploadRes.data.imageUrl;
+      }
+
+      const res = await axios.post(
+        `${API_BASE_URL}/api/umkms/${params.id}/products`,
+        {
+          name: newProduct.name,
+          description: newProduct.description,
+          price: Number.parseFloat(newProduct.price),
+          image: imageUrl || null,
+        },
+        {
+          withCredentials: true,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
+            Accept: "application/json",
+          },
+        }
+      );
+
+      setUMKM({ ...umkm, products: [...umkm.products, res.data.product] });
+
+      setNewProduct({
+        name: "",
+        description: "",
+        price: "",
+        imageUrl: "",
+        imageFile: null,
+      });
+      setIsDialogOpen(false);
+      toast({
+        title: "Product Added",
+        description: "New product has been added successfully.",
+      });
     } catch (error) {
-      console.error("Error deleting UMKM:", error);
+      console.error("Error adding product:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add product",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleApprove = () => {
-    setUMKM({ ...umkm, status: "Approved" });
-    toast({
-      title: "UMKM Approved",
-      description: `${umkm.name} has been approved successfully.`,
-    });
+  const handleEditProduct = async () => {
+    if (!selectedProduct) return;
+
+    setIsSubmitting(true);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Unauthorized",
+        description: "Login required",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await fetchCSRFToken();
+      const res = await axios.put(
+        `${API_BASE_URL}/api/products/${selectedProduct.id}`,
+        {
+          name: selectedProduct.name,
+          description: selectedProduct.description,
+          price: Number.parseFloat(selectedProduct.price.toString()),
+          image: selectedProduct.image || null,
+        },
+        {
+          withCredentials: true,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
+            Accept: "application/json",
+          },
+        }
+      );
+
+      setUMKM({
+        ...umkm,
+        products: umkm.products.map((p: Product) =>
+          p.id === selectedProduct.id ? res.data.product : p
+        ),
+      });
+
+      setIsEditDialogOpen(false);
+      toast({
+        title: "Product Updated",
+        description: "Product has been successfully updated.",
+      });
+    } catch (error) {
+      console.error("Error updating product:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update product",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleReject = () => {
-    setUMKM({ ...umkm, status: "Rejected" });
-    toast({
-      title: "UMKM Rejected",
-      description: `${umkm.name} has been rejected.`,
-      variant: "destructive",
-    });
+  const handleDeleteProduct = async (productId: number) => {
+    setIsDeleting(true);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Unauthorized",
+        description: "Login required",
+        variant: "destructive",
+      });
+      setIsDeleting(false);
+      return;
+    }
+
+    try {
+      await fetchCSRFToken();
+      await axios.delete(`${API_BASE_URL}/api/products/${productId}`, {
+        withCredentials: true,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
+          Accept: "application/json",
+        },
+      });
+
+      setUMKM({
+        ...umkm,
+        products: umkm.products.filter((p: Product) => p.id !== productId),
+      });
+
+      toast({
+        title: "Product Deleted",
+        description: "Product has been successfully deleted.",
+      });
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete product",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    await handleStatusChange("approve", "Active", "UMKM has been approved.");
+  };
+
+  const handleReject = async () => {
+    await handleStatusChange("reject", "Rejected", "UMKM has been rejected.");
+  };
+
+  const handleStatusChange = async (
+    action: string,
+    newStatus: string,
+    successMessage: string
+  ) => {
+    setIsSubmitting(true);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Unauthorized",
+        description: "Login required",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      await fetchCSRFToken();
+      await axios.post(
+        `${API_BASE_URL}/api/umkms/${params.id}/${action}`,
+        {},
+        {
+          withCredentials: true,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
+            Accept: "application/json",
+          },
+        }
+      );
+
+      setUMKM({ ...umkm, status: newStatus });
+      toast({
+        title: "Success",
+        description: successMessage,
+      });
+    } catch (error) {
+      console.error(`Error ${action}ing UMKM:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to ${action} UMKM`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isLoading) {
-    return <div className="text-center p-6">Loading UMKM Details...</div>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
   }
 
   if (!umkm) {
     return <div className="text-center p-6 text-red-500">UMKM Not Found</div>;
   }
 
-  // 🔥 Pilih ikon sesuai tipe UMKM, default ke "Coffee" jika tidak ada yang cocok
-  const Icon = iconMap[umkm.type] || Coffee;
-
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto p-4 md:p-6 space-y-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -137,113 +364,272 @@ export default function UMKMDetailPage() {
       >
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div
-                  className={`w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center`}
-                >
-                  <Icon className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-2xl">{umkm.name}</CardTitle>
-                  <p className="text-muted-foreground">{umkm.type}</p>
-                </div>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+              <div>
+                <CardTitle className="text-2xl mb-2">{umkm.name}</CardTitle>
+                <p className="text-muted-foreground">{umkm.type}</p>
               </div>
-              <div className="flex items-center space-x-2">
-                {umkm.status === "Pending" && (
-                  <>
-                    <Button
-                      onClick={handleApprove}
-                      variant="default"
-                      className="flex items-center"
-                    >
-                      <Check className="mr-2 h-4 w-4" /> Approve
-                    </Button>
-                    <Button
-                      onClick={handleReject}
-                      variant="destructive"
-                      className="flex items-center"
-                    >
-                      <X className="mr-2 h-4 w-4" /> Reject
-                    </Button>
-                  </>
-                )}
-                <Button
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  variant="outline"
-                  className="flex items-center"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                </Button>
-              </div>
+              {umkm.status === "Pending" && (
+                <div className="flex space-x-2 mt-4 md:mt-0">
+                  <Button
+                    variant="default"
+                    onClick={handleApprove}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Approving..." : "Approve"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleReject}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? "Rejecting..." : "Reject"}
+                  </Button>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center space-x-4 mb-4">
-              <Badge
-                variant={
-                  umkm.status === "Approved"
-                    ? "default"
-                    : umkm.status === "Rejected"
-                    ? "destructive"
-                    : "secondary"
-                }
-              >
-                {umkm.status}
-              </Badge>
-              <div className="flex items-center">
-                <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                <span>{umkm.rating}</span>
-              </div>
-            </div>
-            <Tabs defaultValue="overview">
-              <TabsList>
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="mb-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="products">Products</TabsTrigger>
-                <TabsTrigger value="financials">Financials</TabsTrigger>
               </TabsList>
               <TabsContent value="overview">
-                <p>{umkm.description}</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <h3 className="font-semibold mb-2">Description</h3>
+                    <p>{umkm.description || "No description available."}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-2">Contact Information</h3>
+                    <p>Email: {umkm.email || "N/A"}</p>
+                    <p>Phone: {umkm.phone || "N/A"}</p>
+                    <p>Address: {umkm.address || "N/A"}</p>
+                  </div>
+                </div>
               </TabsContent>
               <TabsContent value="products">
-                {umkm.products?.map((product: Product, index: number) => (
-                  <Card key={index}>
-                    <CardContent>
-                      <h3>{product.name}</h3>
-                      <p>Rp {product.price.toLocaleString()}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </TabsContent>
-              <TabsContent value="financials">
-                <p>Monthly Revenue: Rp {umkm.financials?.monthlyRevenue}</p>
+                <div className="space-y-4">
+                  <Button
+                    onClick={() => setIsDialogOpen(true)}
+                    className="mb-4"
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Product
+                  </Button>
+
+                  <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                    <DialogContent>
+                      <DialogTitle>Add Product</DialogTitle>
+                      <DialogDescription>
+                        Enter new product details.
+                      </DialogDescription>
+
+                      <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="name">Name</Label>
+                          <Input
+                            id="name"
+                            value={newProduct.name}
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                name: e.target.value,
+                              })
+                            }
+                            placeholder="Enter product name"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="price">Price</Label>
+                          <Input
+                            id="price"
+                            type="number"
+                            value={newProduct.price}
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                price: e.target.value,
+                              })
+                            }
+                            placeholder="Enter product price"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="description">Description</Label>
+                          <Input
+                            id="description"
+                            value={newProduct.description}
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                description: e.target.value,
+                              })
+                            }
+                            placeholder="Enter product description"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="imageUrl">Image URL</Label>
+                          <Input
+                            id="imageUrl"
+                            value={newProduct.imageUrl}
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                imageUrl: e.target.value,
+                              })
+                            }
+                            placeholder="Enter image URL"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="imageFile">Or Upload Image</Label>
+                          <Input
+                            id="imageFile"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) =>
+                              setNewProduct({
+                                ...newProduct,
+                                imageFile: e.target.files?.[0] || null,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <DialogFooter>
+                        <Button
+                          onClick={handleAddProduct}
+                          disabled={isSubmitting}
+                        >
+                          {isSubmitting ? "Adding..." : "Add Product"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {umkm.products?.map((product: Product) => (
+                      <Card key={product.id} className="flex flex-col">
+                        <CardContent className="p-4 flex-grow">
+                          {product.image && (
+                            <img
+                              src={product.image || "/placeholder.svg"}
+                              alt={product.name}
+                              className="w-full h-40 object-cover rounded-lg mb-4"
+                            />
+                          )}
+                          <h3 className="text-lg font-semibold mb-2">
+                            {product.name}
+                          </h3>
+                          <p className="text-sm mb-2 flex-grow">
+                            {product.description}
+                          </p>
+                          <p className="font-semibold">
+                            Rp {product.price.toLocaleString()}
+                          </p>
+
+                          <div className="flex justify-between mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedProduct(product);
+                                setIsEditDialogOpen(true);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleDeleteProduct(product.id)}
+                              disabled={isDeleting}
+                            >
+                              {isDeleting ? "Deleting..." : "Delete"}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
       </motion.div>
-
-      <AlertDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Are you sure you want to delete this UMKM?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              UMKM and remove all associated data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <Toaster />
+      {/* Dialog Edit Produk */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogTitle>Edit Product</DialogTitle>
+          <DialogDescription>
+            Update the product details below.
+          </DialogDescription>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={selectedProduct?.name || ""}
+                onChange={(e) =>
+                  setSelectedProduct((prev) =>
+                    prev ? { ...prev, name: e.target.value } : null
+                  )
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-price">Price</Label>
+              <Input
+                id="edit-price"
+                type="number"
+                value={selectedProduct?.price || ""}
+                onChange={(e) =>
+                  setSelectedProduct((prev) =>
+                    prev ? { ...prev, price: Number(e.target.value) } : null
+                  )
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Input
+                id="edit-description"
+                value={selectedProduct?.description || ""}
+                onChange={(e) =>
+                  setSelectedProduct((prev) =>
+                    prev ? { ...prev, description: e.target.value } : null
+                  )
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-image">Image URL</Label>
+              <Input
+                id="edit-image"
+                value={selectedProduct?.image || ""}
+                onChange={(e) =>
+                  setSelectedProduct((prev) =>
+                    prev ? { ...prev, image: e.target.value } : null
+                  )
+                }
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={handleEditProduct} disabled={isSubmitting}>
+              {isSubmitting ? "Updating..." : "Update Product"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

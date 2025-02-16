@@ -33,25 +33,43 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Mengirim request login untuk mendapatkan token
-      const res = await axios.post(`${API_BASE_URL}/api/admin/login`, {
-        email,
-        password,
+      // ✅ 1. Ambil CSRF token dulu (WAJIB dilakukan sebelum login)
+      await axios.get(`${API_BASE_URL}/sanctum/csrf-cookie`, {
+        withCredentials: true,
       });
 
-      // Simpan token ke localStorage
+      // ✅ 2. Ambil token CSRF dari cookie browser
+      const csrfToken = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("XSRF-TOKEN="))
+        ?.split("=")[1];
+
+      if (!csrfToken) {
+        throw new Error("CSRF token tidak ditemukan");
+      }
+
+      // ✅ 3. Kirim login request dengan CSRF Token di header
+      const res = await axios.post(
+        `${API_BASE_URL}/api/admin/login`,
+        { email, password },
+        {
+          withCredentials: true, // Penting untuk menyertakan cookies ke backend
+          headers: {
+            "X-XSRF-TOKEN": decodeURIComponent(csrfToken), // 🔥 Wajib ada
+          },
+        }
+      );
+
+      // ✅ 4. Simpan token ke localStorage
       localStorage.setItem("token", res.data.token);
 
-      // Notifikasi sukses login
       toast({
         title: "Login Berhasil",
         description: "Selamat datang di UMKM Admin Dashboard!",
       });
 
-      // Redirect ke halaman utama setelah login berhasil
       router.push("/");
     } catch (err) {
-      // Jika login gagal, tampilkan pesan error
       toast({
         title: "Login Gagal",
         description: "Email atau password salah!",

@@ -74,7 +74,7 @@ export function Dashboard() {
   };
 
   return (
-    <div className="h-screen bg-background">
+    <div className="bg-background overflow-y-hidden">
       <motion.div
         className="flex-1 overflow-hidden"
         initial={{ opacity: 0, x: -20 }}
@@ -93,15 +93,15 @@ export function Dashboard() {
           </div>
         </main>
       </motion.div>
-      <AddUMKMModal
+      {/* <AddUMKMModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-      />
-      <CreateCategoryDialog
+      /> */}
+      {/* <CreateCategoryDialog
         onAddCategory={handleAddCategory}
         isOpen={isCategoryDialogOpen}
         onOpenChange={setIsCategoryDialogOpen}
-      />
+      /> */}
     </div>
   );
 }

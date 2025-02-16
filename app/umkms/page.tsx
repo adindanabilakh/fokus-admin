@@ -21,6 +21,7 @@ import { DeleteUMKMDialog } from "@/components/delete-umkm-dialog";
 import { Search } from "lucide-react";
 // import type { UMKM } from "@/components/edit-umkm-dialog";
 import { useToast } from "@/components/ui/use-toast";
+import axios from "axios";
 
 interface UMKM {
   id: number;
@@ -40,22 +41,44 @@ export default function AllUMKMs() {
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
-  // ✅ Pindahkan fetchUMKMs ke fungsi global agar bisa dipanggil di mana saja dalam komponen
+  // ✅ Ambil CSRF token sebelum request pertama
+  const fetchCSRFToken = async () => {
+    try {
+      await axios.get(`${API_BASE_URL}/sanctum/csrf-cookie`, {
+        withCredentials: true,
+      });
+    } catch (error) {
+      console.error("Failed to fetch CSRF token:", error);
+    }
+  };
+
+  // ✅ Ambil CSRF token dari cookies
+  const getCSRFToken = () => {
+    return document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("XSRF-TOKEN="))
+      ?.split("=")[1];
+  };
+
+  // ✅ Ambil data UMKM dari API dengan CSRF
   const fetchUMKMs = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/umkms`, {
-        headers: { Accept: "application/json" },
+      await fetchCSRFToken(); // Pastikan CSRF token di-fetch dulu
+      const res = await axios.get(`${API_BASE_URL}/api/umkms`, {
+        withCredentials: true, // Pastikan cookies dikirim
+        headers: {
+          "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""), // Wajib untuk CSRF
+          Accept: "application/json",
+        },
       });
-      if (!res.ok) throw new Error("Failed to fetch UMKMs");
 
-      const data = await res.json();
-      setUMKMData(data);
+      setUMKMData(res.data);
     } catch (error) {
       console.error("Error fetching UMKMs:", error);
     }
   };
 
-  // 🔥 Gunakan useEffect untuk memanggil fetchUMKMs saat pertama kali render
+  // 🔥 Fetch data saat pertama kali render
   useEffect(() => {
     fetchUMKMs();
   }, []);
@@ -72,21 +95,18 @@ export default function AllUMKMs() {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/umkms/${id}`, {
-        method: "DELETE",
+      await fetchCSRFToken();
+      const res = await axios.delete(`${API_BASE_URL}/api/umkms/${id}`, {
+        withCredentials: true,
         headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
+          "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
           Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!res.ok) {
-        throw new Error(`Failed to delete UMKM. Status: ${res.status}`);
-      }
+      if (res.status !== 200) throw new Error(`Failed to delete UMKM`);
 
-      // ✅ Panggil fetchUMKMs setelah delete agar data diperbarui
-      fetchUMKMs();
+      fetchUMKMs(); // ✅ Refresh data setelah delete
 
       toast({
         title: "UMKM Deleted",
