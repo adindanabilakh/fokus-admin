@@ -33,12 +33,12 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // ✅ 1. Ambil CSRF token dulu (WAJIB dilakukan sebelum login)
+      // ✅ 1. Ambil CSRF Token dulu
       await axios.get(`${API_BASE_URL}/sanctum/csrf-cookie`, {
         withCredentials: true,
       });
 
-      // ✅ 2. Ambil token CSRF dari cookie browser
+      // ✅ 2. Ambil CSRF Token dari cookie
       const csrfToken = document.cookie
         .split("; ")
         .find((row) => row.startsWith("XSRF-TOKEN="))
@@ -48,17 +48,25 @@ export default function LoginPage() {
         throw new Error("CSRF token tidak ditemukan");
       }
 
-      // ✅ 3. Kirim login request dengan CSRF Token di header
+      // ✅ 3. Kirim login request dengan headers yang benar
       const res = await axios.post(
         `${API_BASE_URL}/api/admin/login`,
         { email, password },
         {
-          withCredentials: true, // Penting untuk menyertakan cookies ke backend
+          withCredentials: true,
           headers: {
             "X-XSRF-TOKEN": decodeURIComponent(csrfToken), // 🔥 Wajib ada
+            Accept: "application/json", // 🔥 Wajib untuk JSON response
+            "Content-Type": "application/json",
           },
         }
       );
+
+      console.log("Login Response:", res); // 🔍 Debug response
+
+      if (!res.data.token) {
+        throw new Error("Login gagal: Token tidak diterima.");
+      }
 
       // ✅ 4. Simpan token ke localStorage
       localStorage.setItem("token", res.data.token);
@@ -69,10 +77,11 @@ export default function LoginPage() {
       });
 
       router.push("/");
-    } catch (err) {
+    } catch (err: any) {
+      console.error("Login Error:", err);
       toast({
         title: "Login Gagal",
-        description: "Email atau password salah!",
+        description: err.message || "Terjadi kesalahan saat login.",
         variant: "destructive",
       });
     } finally {
