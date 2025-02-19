@@ -39,7 +39,6 @@ const getCSRFToken = () => {
     .find((row) => row.startsWith("XSRF-TOKEN="))
     ?.split("=")[1];
 };
-
 interface UMKM {
   id: number;
   name: string;
@@ -50,6 +49,7 @@ interface UMKM {
   address: string;
   employee_count: number;
   annual_revenue: number;
+  document?: string; // ✅ Tambahkan properti ini agar tidak error
 }
 
 interface NotificationSidebarProps {
@@ -246,7 +246,7 @@ export function NotificationSidebar({
 
       {/* Dialog Review */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Review UMKM</DialogTitle>
             <DialogDescription>
@@ -254,31 +254,55 @@ export function NotificationSidebar({
             </DialogDescription>
           </DialogHeader>
           {currentReview && (
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <span className="font-medium">Owner:</span>
-                <span className="col-span-3">{currentReview.owner_name}</span>
+            <div className="grid grid-cols-2 gap-6">
+              {/* 🔹 Kiri: Detail UMKM */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <span className="font-medium">Owner:</span>
+                  <span className="col-span-3">{currentReview.owner_name}</span>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <span className="font-medium">Category:</span>
+                  <span className="col-span-3">{currentReview.category}</span>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <span className="font-medium">Location:</span>
+                  <span className="col-span-3">{currentReview.address}</span>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <span className="font-medium">Employees:</span>
+                  <span className="col-span-3">
+                    {currentReview.employee_count}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <span className="font-medium">Annual Revenue:</span>
+                  <span className="col-span-3">
+                    Rp {currentReview.annual_revenue?.toLocaleString() ?? "N/A"}
+                  </span>
+                </div>
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <span className="font-medium">Category:</span>
-                <span className="col-span-3">{currentReview.category}</span>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <span className="font-medium">Location:</span>
-                <span className="col-span-3">{currentReview.address}</span>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <span className="font-medium">Employees:</span>
-                <span className="col-span-3">
-                  {currentReview.employee_count}
-                </span>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <span className="font-medium">Annual Revenue:</span>
-                <span className="col-span-3">
-                  Rp {currentReview.annual_revenue?.toLocaleString() ?? "N/A"}
-                </span>
-              </div>
+
+              {/* 🔹 Kanan: Document Preview */}
+              {currentReview.document && (
+                <div className="flex flex-col items-center space-y-4">
+                  <h3 className="font-medium mb-2">Document</h3>
+                  {currentReview.document.endsWith(".pdf") ? (
+                    <iframe
+                      src={`${API_BASE_URL}/storage/${currentReview.document}`}
+                      className="w-full h-96 rounded-lg border"
+                    />
+                  ) : (
+                    <div className="max-h-[500px] overflow-y-auto rounded-lg border">
+                      <img
+                        src={`${API_BASE_URL}/storage/${currentReview.document}`}
+                        alt="UMKM Document"
+                        className="w-full rounded-lg"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
           <DialogFooter className="sm:justify-start">

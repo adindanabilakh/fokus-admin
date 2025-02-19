@@ -59,6 +59,7 @@ export default function UMKMDetailPage() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
 
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -400,6 +401,43 @@ export default function UMKMDetailPage() {
                   <div>
                     <h3 className="font-semibold mb-2">Description</h3>
                     <p>{umkm.description || "No description available."}</p>
+                    <Button
+                      variant="outline"
+                      className="mt-4"
+                      onClick={() => setIsDocumentDialogOpen(true)}
+                      disabled={!umkm.document} // Disable jika tidak ada dokumen
+                    >
+                      View Document
+                    </Button>
+                    <Dialog
+                      open={isDocumentDialogOpen}
+                      onOpenChange={setIsDocumentDialogOpen}
+                    >
+                      <DialogContent className="sm:max-w-2xl">
+                        <DialogTitle>UMKM Document</DialogTitle>
+                        <div className="max-h-[500px] overflow-y-auto rounded-lg border">
+                          {umkm.document?.endsWith(".pdf") ? (
+                            <iframe
+                              src={`${API_BASE_URL}/storage/${umkm.document}`}
+                              className="w-full h-96 rounded-lg"
+                            />
+                          ) : (
+                            <img
+                              src={`${API_BASE_URL}/storage/${umkm.document}`}
+                              alt="UMKM Document"
+                              className="w-full rounded-lg"
+                            />
+                          )}
+                        </div>
+                        <DialogFooter>
+                          <Button
+                            onClick={() => setIsDocumentDialogOpen(false)}
+                          >
+                            Close
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                   <div>
                     <h3 className="font-semibold mb-2">Contact Information</h3>
