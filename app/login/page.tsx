@@ -56,7 +56,7 @@ export default function LoginPage() {
           withCredentials: true,
           headers: {
             "X-XSRF-TOKEN": decodeURIComponent(csrfToken), // 🔥 Wajib ada
-            Accept: "application/json", // 🔥 Wajib untuk JSON response
+            "Accept": "application/json", // 🔥 Wajib untuk JSON response
             "Content-Type": "application/json",
           },
         }
