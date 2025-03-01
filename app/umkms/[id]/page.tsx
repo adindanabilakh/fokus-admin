@@ -19,6 +19,16 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import axios from "axios";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
@@ -60,6 +70,7 @@ export default function UMKMDetailPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
+  const [income, setIncome] = useState<any[]>([]);
 
   const [newProduct, setNewProduct] = useState({
     name: "",
@@ -90,6 +101,46 @@ export default function UMKMDetailPage() {
       }
     }
     fetchUMKMDetails();
+  }, [params.id, toast]);
+
+  useEffect(() => {
+    async function fetchIncome() {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast({
+          title: "Unauthorized",
+          description: "Login required",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      try {
+        await fetchCSRFToken(); // Pastikan CSRF token di-fetch
+
+        const res = await axios.get(
+          `${API_BASE_URL}/api/umkms/${params.id}/income`,
+          {
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+              "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
+            },
+            withCredentials: true,
+          }
+        );
+        setIncome(res.data.income);
+      } catch (error) {
+        console.error("Error fetching income:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch income data",
+          variant: "destructive",
+        });
+      }
+    }
+
+    fetchIncome();
   }, [params.id, toast]);
 
   const handleAddProduct = async () => {
@@ -395,6 +446,7 @@ export default function UMKMDetailPage() {
               <TabsList className="mb-4">
                 <TabsTrigger value="overview">Overview</TabsTrigger>
                 <TabsTrigger value="products">Products</TabsTrigger>
+                <TabsTrigger value="income">Income</TabsTrigger>
               </TabsList>
               <TabsContent value="overview">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -595,6 +647,63 @@ export default function UMKMDetailPage() {
                     ))}
                   </div>
                 </div>
+              </TabsContent>
+              <TabsContent value="income">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold">
+                      Income Records
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoading ? (
+                      <div className="space-y-4">
+                        <Skeleton className="h-8 w-full" />
+                        <Skeleton className="h-8 w-full" />
+                        <Skeleton className="h-8 w-full" />
+                      </div>
+                    ) : income.length > 0 ? (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-[150px]">Date</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {income
+                            .slice() // Buat salinan array agar tidak mengubah state asli
+                            .sort(
+                              (a, b) =>
+                                new Date(b.date).getTime() -
+                                new Date(a.date).getTime()
+                            ) // Urutkan dari terbaru
+                            .map((entry, index) => (
+                              <TableRow key={index}>
+                                <TableCell>
+                                  {new Intl.DateTimeFormat("id-ID", {
+                                    year: "numeric",
+                                    month: "long",
+                                  }).format(new Date(entry.date))}
+                                </TableCell>
+                                <TableCell>{entry.notes}</TableCell>
+                                <TableCell className="text-right">
+                                  <Badge variant="outline">
+                                    Rp {entry.amount.toLocaleString()}
+                                  </Badge>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                        </TableBody>
+                      </Table>
+                    ) : (
+                      <p className="text-gray-500 text-center">
+                        No income records available.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
               </TabsContent>
             </Tabs>
           </CardContent>
