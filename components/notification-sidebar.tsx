@@ -42,6 +42,7 @@ const getCSRFToken = () => {
 interface UMKM {
   id: number;
   name: string;
+  email: string;
   type: string;
   status: "Pending" | "Active" | "Rejected";
   owner_name: string;
@@ -246,7 +247,7 @@ export function NotificationSidebar({
 
       {/* Dialog Review */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>Review UMKM</DialogTitle>
             <DialogDescription>
@@ -258,29 +259,33 @@ export function NotificationSidebar({
               {/* 🔹 Kiri: Detail UMKM */}
               <div className="space-y-4">
                 <div className="grid grid-cols-4 items-center gap-4">
-                  <span className="font-medium">Owner:</span>
-                  <span className="col-span-3">{currentReview.owner_name}</span>
+                  <span className="font-medium">Name:</span>
+                  <span className="col-span-3">{currentReview.name}</span>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <span className="font-medium">Category:</span>
-                  <span className="col-span-3">{currentReview.category}</span>
+                  <span className="col-span-3">{currentReview.type}</span>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                   <span className="font-medium">Location:</span>
                   <span className="col-span-3">{currentReview.address}</span>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
+                  <span className="font-medium">Email</span>
+                  <span className="col-span-3">: {currentReview.email}</span>
+                </div>
+                {/* <div className="grid grid-cols-4 items-center gap-4">
                   <span className="font-medium">Employees:</span>
                   <span className="col-span-3">
                     {currentReview.employee_count}
                   </span>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
+                </div> */}
+                {/* <div className="grid grid-cols-4 items-center gap-4">
                   <span className="font-medium">Annual Revenue:</span>
                   <span className="col-span-3">
                     Rp {currentReview.annual_revenue?.toLocaleString() ?? "N/A"}
                   </span>
-                </div>
+                </div> */}
               </div>
 
               {/* 🔹 Kanan: Document Preview */}
