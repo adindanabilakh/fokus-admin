@@ -80,6 +80,13 @@ export default function UMKMDetailPage() {
     imageFile: null as File | null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isIncomeDialogOpen, setIsIncomeDialogOpen] = useState(false);
+  const [incomeForm, setIncomeForm] = useState({
+    amount: "",
+    date: "",
+    notes: "",
+    source: "", // ✅ tambahkan ini
+  });
 
   useEffect(() => {
     async function fetchUMKMDetails() {
@@ -168,42 +175,23 @@ export default function UMKMDetailPage() {
     try {
       await fetchCSRFToken();
 
-      let imageUrl = newProduct.imageUrl;
-
+      const formData = new FormData();
+      formData.append("name", newProduct.name);
+      formData.append("description", newProduct.description);
+      formData.append("price", newProduct.price);
       if (newProduct.imageFile) {
-        const formData = new FormData();
         formData.append("image", newProduct.imageFile);
-
-        const uploadRes = await axios.post(
-          `${API_BASE_URL}/api/upload-image`,
-          formData,
-          {
-            withCredentials: true,
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-
-        imageUrl = uploadRes.data.imageUrl;
       }
 
       const res = await axios.post(
         `${API_BASE_URL}/api/umkms/${params.id}/products`,
-        {
-          name: newProduct.name,
-          description: newProduct.description,
-          price: Number.parseFloat(newProduct.price),
-          image: imageUrl || null,
-        },
+        formData,
         {
           withCredentials: true,
           headers: {
             Authorization: `Bearer ${token}`,
             "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
-            Accept: "application/json",
+            "Content-Type": "multipart/form-data",
           },
         }
       );
@@ -251,20 +239,30 @@ export default function UMKMDetailPage() {
 
     try {
       await fetchCSRFToken();
-      const res = await axios.put(
-        `${API_BASE_URL}/api/products/${selectedProduct.id}`,
-        {
-          name: selectedProduct.name,
-          description: selectedProduct.description,
-          price: Number.parseFloat(selectedProduct.price.toString()),
-          image: selectedProduct.image || null,
-        },
+
+      const formData = new FormData();
+      formData.append("name", selectedProduct.name);
+      formData.append("description", selectedProduct.description);
+      formData.append("price", selectedProduct.price.toString());
+
+      // Jika ada file baru, tambahkan
+      const fileInput = document.getElementById(
+        "edit-imageFile"
+      ) as HTMLInputElement;
+      const file = fileInput?.files?.[0];
+      if (file) {
+        formData.append("image", file);
+      }
+
+      const res = await axios.post(
+        `${API_BASE_URL}/api/products/${selectedProduct.id}?_method=PUT`, // pakai override jika backend pakai POST + _method
+        formData,
         {
           withCredentials: true,
           headers: {
             Authorization: `Bearer ${token}`,
             "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
-            Accept: "application/json",
+            "Content-Type": "multipart/form-data",
           },
         }
       );
@@ -406,6 +404,64 @@ export default function UMKMDetailPage() {
   if (!umkm) {
     return <div className="text-center p-6 text-red-500">UMKM Not Found</div>;
   }
+
+  const handleAddIncome = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast({
+        title: "Unauthorized",
+        description: "Login required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!incomeForm.amount || !incomeForm.date) {
+      toast({
+        title: "Error",
+        description: "Amount dan date wajib diisi",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await fetchCSRFToken();
+      const res = await axios.post(
+        `${API_BASE_URL}/api/incomes`,
+        {
+          umkm_id: umkm.id,
+          amount: Number(incomeForm.amount),
+          date: incomeForm.date,
+          notes: incomeForm.notes,
+          source: incomeForm.source, // ✅ tambahkan ini
+        },
+        {
+          withCredentials: true,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-XSRF-TOKEN": decodeURIComponent(getCSRFToken() || ""),
+            Accept: "application/json",
+          },
+        }
+      );
+
+      setIncome([...income, res.data.income]);
+      setIsIncomeDialogOpen(false); // ✅ ini benar
+      setIncomeForm({ amount: "", date: "", notes: "", source: "" });
+      toast({
+        title: "Income added",
+        description: "Berhasil menambahkan income.",
+      });
+    } catch (err) {
+      console.error("Failed to add income:", err);
+      toast({
+        title: "Error",
+        description: "Gagal menambahkan income",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
@@ -607,11 +663,16 @@ export default function UMKMDetailPage() {
                         <CardContent className="p-4 flex-grow">
                           {product.image && (
                             <img
-                              src={product.image || "/placeholder.svg"}
+                              src={
+                                product.image.startsWith("http")
+                                  ? product.image
+                                  : `${API_BASE_URL}${product.image}`
+                              }
                               alt={product.name}
                               className="w-full h-40 object-cover rounded-lg mb-4"
                             />
                           )}
+
                           <h3 className="text-lg font-semibold mb-2">
                             {product.name}
                           </h3>
@@ -656,6 +717,14 @@ export default function UMKMDetailPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
+                    <Button
+                      className="mb-4"
+                      onClick={() => setIsIncomeDialogOpen(true)}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Income
+                    </Button>
+
                     {isLoading ? (
                       <div className="space-y-4">
                         <Skeleton className="h-8 w-full" />
@@ -687,7 +756,7 @@ export default function UMKMDetailPage() {
                                     month: "long",
                                   }).format(new Date(entry.date))}
                                 </TableCell>
-                                <TableCell>{entry.notes}</TableCell>
+                                <TableCell>{entry.source}</TableCell>
                                 <TableCell className="text-right">
                                   <Badge variant="outline">
                                     Rp {entry.amount.toLocaleString()}
@@ -757,23 +826,91 @@ export default function UMKMDetailPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-image">Image URL</Label>
-              <Input
-                id="edit-image"
-                value={selectedProduct?.image || ""}
-                onChange={(e) =>
-                  setSelectedProduct((prev) =>
-                    prev ? { ...prev, image: e.target.value } : null
-                  )
-                }
-              />
+              <Label htmlFor="edit-imageFile">
+                Upload New Image (optional)
+              </Label>
+              <Input id="edit-imageFile" type="file" accept="image/*" />
             </div>
+
+            {/* <div className="grid gap-2">
+                <Label htmlFor="edit-image">Image URL</Label>
+                <Input
+                  id="edit-image"
+                  value={selectedProduct?.image || ""}
+                  onChange={(e) =>
+                    setSelectedProduct((prev) =>
+                      prev ? { ...prev, image: e.target.value } : null
+                    )
+                  }
+                />
+              </div> */}
           </div>
 
           <DialogFooter>
             <Button onClick={handleEditProduct} disabled={isSubmitting}>
               {isSubmitting ? "Updating..." : "Update Product"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isIncomeDialogOpen} onOpenChange={setIsIncomeDialogOpen}>
+        <DialogContent>
+          <DialogTitle>Add Income</DialogTitle>
+          <DialogDescription>
+            Masukkan data income baru untuk UMKM ini.
+          </DialogDescription>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="income-amount">Amount</Label>
+              <Input
+                id="income-amount"
+                type="number"
+                value={incomeForm.amount}
+                onChange={(e) =>
+                  setIncomeForm({ ...incomeForm, amount: e.target.value })
+                }
+                placeholder="e.g. 100000"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="income-date">Date</Label>
+              <Input
+                id="income-date"
+                type="month" // ✅ Ini per bulan
+                value={incomeForm.date}
+                onChange={(e) =>
+                  setIncomeForm({ ...incomeForm, date: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="income-source">Source</Label>
+              <Input
+                id="income-source"
+                value={incomeForm.source}
+                onChange={(e) =>
+                  setIncomeForm({ ...incomeForm, source: e.target.value })
+                }
+                placeholder="Contoh: Penjualan Produk A"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="income-notes">Notes</Label>
+              <Input
+                id="income-notes"
+                value={incomeForm.notes}
+                onChange={(e) =>
+                  setIncomeForm({ ...incomeForm, notes: e.target.value })
+                }
+                placeholder="Keterangan opsional"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={handleAddIncome}>Add Income</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
