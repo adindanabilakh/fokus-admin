@@ -113,7 +113,7 @@ export function UMKMGrid() {
                         </div>
                         <div className="flex items-center text-sm">
                           <Phone className="h-4 w-4 mr-2" />
-                          {umkm.phone}
+                          {umkm.phone_number}
                         </div>
                       </motion.div>
                     )}
