@@ -713,7 +713,7 @@ export default function UMKMDetailPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg font-semibold">
-                      Income Records
+                      Catatan Pendapatan
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -722,7 +722,7 @@ export default function UMKMDetailPage() {
                       onClick={() => setIsIncomeDialogOpen(true)}
                     >
                       <Plus className="mr-2 h-4 w-4" />
-                      Add Income
+                      Tambah Pendapatan
                     </Button>
 
                     {isLoading ? (
@@ -735,9 +735,9 @@ export default function UMKMDetailPage() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-[150px]">Date</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead className="w-[150px]">Bulan</TableHead>
+                            <TableHead className="text-right">Pendapatan</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -750,13 +750,13 @@ export default function UMKMDetailPage() {
                             ) // Urutkan dari terbaru
                             .map((entry, index) => (
                               <TableRow key={index}>
+                                <TableCell>{entry.source}</TableCell>
                                 <TableCell>
                                   {new Intl.DateTimeFormat("id-ID", {
                                     year: "numeric",
                                     month: "long",
                                   }).format(new Date(entry.date))}
                                 </TableCell>
-                                <TableCell>{entry.source}</TableCell>
                                 <TableCell className="text-right">
                                   <Badge variant="outline">
                                     Rp {entry.amount.toLocaleString()}
@@ -862,7 +862,7 @@ export default function UMKMDetailPage() {
 
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="income-amount">Amount</Label>
+              <Label htmlFor="income-amount">Pendapatan</Label>
               <Input
                 id="income-amount"
                 type="number"
@@ -874,7 +874,18 @@ export default function UMKMDetailPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="income-date">Date</Label>
+              <Label htmlFor="income-source">Tanggal</Label>
+              <Input
+                id="income-source"
+                value={incomeForm.source}
+                onChange={(e) =>
+                  setIncomeForm({ ...incomeForm, source: e.target.value })
+                }
+                placeholder="Tanggal"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="income-date">Bulan</Label>
               <Input
                 id="income-date"
                 type="month" // ✅ Ini per bulan
@@ -885,19 +896,7 @@ export default function UMKMDetailPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="income-source">Source</Label>
-              <Input
-                id="income-source"
-                value={incomeForm.source}
-                onChange={(e) =>
-                  setIncomeForm({ ...incomeForm, source: e.target.value })
-                }
-                placeholder="Contoh: Penjualan Produk A"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="income-notes">Notes</Label>
+              <Label htmlFor="income-notes">Catatan</Label>
               <Input
                 id="income-notes"
                 value={incomeForm.notes}
@@ -910,7 +909,7 @@ export default function UMKMDetailPage() {
           </div>
 
           <DialogFooter>
-            <Button onClick={handleAddIncome}>Add Income</Button>
+            <Button onClick={handleAddIncome}>Tambah Pendapatan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
